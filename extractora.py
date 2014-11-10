@@ -7,12 +7,14 @@
 # This hack is brought to you by macan <eduardomacan@gmail.com>, out of the needs of my QA team
 # in a project I'm leading :P
 
+
 from __future__ import print_function
 import sys
 import types
 import datetime
 import json
 import os.path
+
 import cx_Oracle
 
 
