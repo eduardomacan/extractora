@@ -14,6 +14,7 @@ import types
 import datetime
 import json
 import os.path
+import argparse
 
 import cx_Oracle
 
@@ -120,6 +121,15 @@ cur = con.cursor()
 # TODO: implement proper argument parsing
 # TODO: translate variable names into english
 # TODO: optionally output XML in the dbunit format
+
+parser = argparse.ArgumentParser(description='recursively extract data from oracle')
+parser.add_argument('--xml', '-x', dest='format', action='store_const',
+                    const='xml', default='sql',
+                    help='XML output (default=SQL)')
+parser.add_argument('table', help='table name')
+parser.add_argument('column', help='column name')
+parser.add_argument('value', help='value name')
+args = parser.parse_args()
 
 tabela = sys.argv[1].upper()
 campo = sys.argv[2].upper()
