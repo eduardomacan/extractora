@@ -28,16 +28,16 @@ def get_dependencies(cursor, table_name):
         order by c.table_name'''
 
     cursor.execute(query, {'TableName': table_name})
-    tudo = cursor.fetchall()
-    if tudo:
-        current = tudo[0][4]
-        cur_col = tudo[0][2]
+    all_rows = cursor.fetchall()
+    if all_rows:
+        current = all_rows[0][4]
+        cur_col = all_rows[0][2]
         grouped_from = []
         grouped_to = []
         grouped = []
 
         # group keys by referenced table  so that we know how to deal with composite foreign keys later
-        for item in tudo:
+        for item in all_rows:
             if item[4] != current:
                 grouped.append((item[0], grouped_from, cur_col, grouped_to))
                 current = item[4]
@@ -118,9 +118,6 @@ except IOError:
 con = cx_Oracle.connect(USER, PASSWORD, DSN)
 cur = con.cursor()
 
-# TODO: translate variable names into english
-# TODO: optionally output XML in the dbunit format
-
 parser = argparse.ArgumentParser(description='recursively extract data from oracle')
 parser.add_argument('--xml', '-x', dest='format', action='store_const',
                     const='xml', default='sql',
@@ -133,18 +130,18 @@ parser.add_argument('value', help='value name')
 args_ns = parser.parse_args()
 
 ARGS = vars(args_ns)
-tabela = ARGS['table'].upper()
-campo = ARGS['column'].upper()
-valor = ARGS['value']
+table_name = ARGS['table'].upper()
+column_name = ARGS['column'].upper()
+column_value = ARGS['value']
 
-queue = [tabela]
+queue = [table_name]
 processed = []
 
 dependencies = {}
 data = {}
 
-row = get_row(cur, tabela, [campo], [valor])
-data[tabela] = row
+row = get_row(cur, table_name, [column_name], [column_value])
+data[table_name] = row
 
 while queue:
     tablename = queue.pop(0)
