@@ -118,7 +118,6 @@ except IOError:
 con = cx_Oracle.connect(USER, PASSWORD, DSN)
 cur = con.cursor()
 
-# TODO: implement proper argument parsing
 # TODO: translate variable names into english
 # TODO: optionally output XML in the dbunit format
 
@@ -126,14 +125,17 @@ parser = argparse.ArgumentParser(description='recursively extract data from orac
 parser.add_argument('--xml', '-x', dest='format', action='store_const',
                     const='xml', default='sql',
                     help='XML output (default=SQL)')
+parser.add_argument('--file', '-f', dest='outputfile',
+                    help='output filename (none for stdout)')
 parser.add_argument('table', help='table name')
 parser.add_argument('column', help='column name')
 parser.add_argument('value', help='value name')
-args = parser.parse_args()
+args_ns = parser.parse_args()
 
-tabela = sys.argv[1].upper()
-campo = sys.argv[2].upper()
-valor = sys.argv[3]
+ARGS = vars(args_ns)
+tabela = ARGS['table'].upper()
+campo = ARGS['column'].upper()
+valor = ARGS['value']
 
 queue = [tabela]
 processed = []
@@ -166,11 +168,13 @@ while queue:
                     data[dep[0]][dep[1]] = None
         processed.append(tablename)
 
-# TODO: output to stdout or file (and output format) should be selectable via command line
+if ARGS['outputfile']:
+    outputfile = open(ARGS['outputfile'], "w")
+else:
+    outputfile = sys.stdout
 
-outputfilename = "novo-" + tabela + ".sql"
-outputfile = open(outputfilename, "w")
 processed.reverse()
+
 for tablename in processed:
     fields = get_columns(cur, tablename, SCHEMA)
     outputfile.write("insert into " + tablename + " (")
