@@ -130,18 +130,18 @@ parser.add_argument('value', help='value name')
 args_ns = parser.parse_args()
 
 ARGS = vars(args_ns)
-table_name = ARGS['table'].upper()
-column_name = ARGS['column'].upper()
-column_value = ARGS['value']
+target_table = ARGS['table'].upper()
+target_column = ARGS['column'].upper()
+target_value = ARGS['value']
 
-queue = [table_name]
+queue = [target_table]
 processed = []
 
 dependencies = {}
 data = {}
 
-row = get_row(cur, table_name, [column_name], [column_value])
-data[table_name] = row
+row = get_row(cur, target_table, [target_column], [target_value])
+data[target_table] = row
 
 while queue:
     tablename = queue.pop(0)
