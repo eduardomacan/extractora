@@ -175,15 +175,36 @@ else:
 
 processed.reverse()
 
+
+# TODO : this format selection and output is awful, refactor and separate data, formatting and file output
+# TODO : fix output encoding, make sure it's utf-8, or any encoding that may be user selected
+# TODO : make output encoding user selectable :)
+
+if ARGS['format'] == 'xml':
+    outputfile.write("<?xml version='1.0' encoding='UTF-8'?>\n<dataset>\n")
+
 for tablename in processed:
     fields = get_columns(cur, tablename, SCHEMA)
-    outputfile.write("insert into " + tablename + " (")
-    for i in range(len(fields) - 1):
-        outputfile.write(fields[i] + ",")
-    outputfile.write(fields[-1] + ") values (")
-    for i in range(len(fields) - 1):
-        outputfile.write(sql_str(data[tablename][fields[i]]) + ",")
-    outputfile.write(sql_str(data[tablename][fields[-1]]) + ");\n")
+    if ARGS['format'] == 'sql':
+        outputfile.write("insert into " + tablename + " (")
+    else:
+        outputfile.write("\t<" + tablename + " ")
+
+    if ARGS['format'] == 'sql':
+        for i in range(len(fields) - 1):
+            outputfile.write(fields[i] + ",")
+        outputfile.write(fields[-1] + ") values (")
+        for i in range(len(fields) - 1):
+            outputfile.write(sql_str(data[tablename][fields[i]]) + ",")
+        outputfile.write(sql_str(data[tablename][fields[-1]]) + ");\n")
+    else:
+        for i in range(len(fields)):
+            if data[tablename][fields[i]]:  # ommit null values from xml output TODO : cli arg? same for sql output?
+                outputfile.write(fields[i] + "=\"" + str(data[tablename][fields[i]]) + "\" ")
+        outputfile.write('/>\n')
+
+if ARGS['format'] == 'xml':
+    outputfile.write('</dataset>\n')
 
 if ARGS['outputfile']:
     outputfile.close()
