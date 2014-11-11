@@ -17,3 +17,21 @@ Configuration Options
   * user: Oracle Database Username
   * password: Oracle Username Password
   * schema: Schema owner (usually the same as 'user', but not necessarily so)
+  
+Usage
+----------
+
+    usage: extractora.py [-h] [--xml] [--file OUTPUTFILE] table column value
+    
+    recursively extract data from oracle
+    
+    positional arguments:
+      table                 table name
+      column                column name
+      value                 value name
+    
+    optional arguments:
+      -h, --help            show this help message and exit
+      --xml, -x             XML output (default=SQL)
+      --file OUTPUTFILE, -f OUTPUTFILE
+                            output filename (none for stdout)
