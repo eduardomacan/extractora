@@ -184,4 +184,6 @@ for tablename in processed:
     for i in range(len(fields) - 1):
         outputfile.write(sql_str(data[tablename][fields[i]]) + ",")
     outputfile.write(sql_str(data[tablename][fields[-1]]) + ");\n")
-outputfile.close()
+
+if ARGS['outputfile']:
+    outputfile.close()
