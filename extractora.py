@@ -89,7 +89,7 @@ def sql_str(val):
         return "'" + str(val) + "'"
 
 
-def get_row(cursor, table_name, column_names, column_values):
+def get_rows(cursor, table_name, column_names, column_values):
     """fetches a row of data from a table, given arrays of column names and their values
     :param cursor: open oracle cursor
     :param table_name: the name of the table to extract a row from
@@ -103,7 +103,7 @@ def get_row(cursor, table_name, column_names, column_values):
     cursor.execute(query)
     desc = [d[0] for d in cursor.description]
     result = [dict(zip(desc, line)) for line in cursor]
-    return result[0]
+    return result
 
 
 # Initialize stuff and parse command arguments
@@ -153,7 +153,7 @@ processed = []
 dependencies = {}
 data = {}
 
-row = get_row(cur, target_table, [target_column], [target_value])
+row = get_rows(cur, target_table, [target_column], [target_value])
 data[target_table] = row
 
 while queue:
@@ -168,9 +168,9 @@ while queue:
                 try:
                     vals = []
                     for i in range(len(dep[1])):
-                        vals.append(data[dep[0]][dep[1][i]])
+                        vals.append(data[dep[0]][0][dep[1][i]])
                     if len(vals) and vals[0]:
-                        row = get_row(cur, dep[2], dep[3], vals)
+                        row = get_rows(cur, dep[2], dep[3], vals)
                         data[dep[2]] = row
                         queue.append(dep[2])
                 except KeyError:
@@ -194,24 +194,25 @@ if ARGS['format'] == 'xml':
     outputfile.write("<?xml version='1.0' encoding='UTF-8'?>\n<dataset>\n")
 
 for tablename in processed:
-    fields = get_columns(cur, tablename, SCHEMA)
-    if ARGS['format'] == 'sql':
-        outputfile.write("insert into " + tablename + " (")
-    else:
-        outputfile.write("\t<" + tablename + " ")
+    for item in range(len(data[tablename])):
+        fields = get_columns(cur, tablename, SCHEMA)
+        if ARGS['format'] == 'sql':
+            outputfile.write("insert into " + tablename + " (")
+        else:
+            outputfile.write("\t<" + tablename + " ")
 
-    if ARGS['format'] == 'sql':
-        for i in range(len(fields) - 1):
-            outputfile.write(fields[i] + ",")
-        outputfile.write(fields[-1] + ") values (")
-        for i in range(len(fields) - 1):
-            outputfile.write(sql_str(data[tablename][fields[i]]) + ",")
-        outputfile.write(sql_str(data[tablename][fields[-1]]) + ");\n")
-    else:
-        for i in range(len(fields)):
-            if data[tablename][fields[i]]:  # ommit null values from xml output TODO : cli arg? same for sql output?
-                outputfile.write(fields[i] + "=\"" + str(data[tablename][fields[i]]) + "\" ")
-        outputfile.write('/>\n')
+        if ARGS['format'] == 'sql':
+            for i in range(len(fields) - 1):
+                outputfile.write(fields[i] + ",")
+            outputfile.write(fields[-1] + ") values (")
+            for i in range(len(fields) - 1):
+                outputfile.write(sql_str(data[tablename][item][fields[i]]) + ",")
+            outputfile.write(sql_str(data[tablename][item][fields[-1]]) + ");\n")
+        else:
+            for i in range(len(fields)):
+                if data[tablename][item][fields[i]]:  # ommit null values from xml output TODO : cli arg? same for sql output?
+                    outputfile.write(fields[i] + "=\"" + str(data[tablename][0][fields[i]]) + "\" ")
+            outputfile.write('/>\n')
 
 if ARGS['format'] == 'xml':
     outputfile.write('</dataset>\n')
