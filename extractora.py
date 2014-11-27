@@ -19,16 +19,28 @@ import argparse
 import cx_Oracle
 
 
-def get_dependencies(cursor, table_name):
+def get_dependencies(cursor, table_name, owner = None):
     """query oracle metadata to obtain foreign keys for a given table"""
-    query = '''select b.table_name,b.column_name,c.table_name,c.column_name, b.constraint_name from all_constraints a
-        join all_cons_columns b on b.constraint_name=a.constraint_name
-        join all_cons_columns c on c.constraint_name=a.r_constraint_name
-        where a.CONSTRAINT_TYPE='R' and b.position = c.position and a.table_name=:TableName
-        order by c.table_name'''
 
-    cursor.execute(query, {'TableName': table_name})
+    if owner:
+        query = '''select b.table_name,b.column_name,c.table_name,c.column_name, b.constraint_name from all_constraints a
+            join all_cons_columns b on b.constraint_name=a.constraint_name
+            join all_cons_columns c on c.constraint_name=a.r_constraint_name
+            where a.CONSTRAINT_TYPE='R' and b.position = c.position and a.table_name=:TableName
+            and a.owner=:Owner and b.owner=:Owner and c.owner=:Owner
+            order by c.table_name'''
+        cursor.execute(query, {'TableName': table_name, 'Owner': owner})
+    else:
+        query = '''select b.table_name,b.column_name,c.table_name,c.column_name, b.constraint_name from all_constraints a
+            join all_cons_columns b on b.constraint_name=a.constraint_name
+            join all_cons_columns c on c.constraint_name=a.r_constraint_name
+            where a.CONSTRAINT_TYPE='R' and b.position = c.position and a.table_name=:TableName
+            order by c.table_name'''
+        cursor.execute(query, {'TableName': table_name})
+
+
     all_rows = cursor.fetchall()
+
     if all_rows:
         current = all_rows[0][4]
         cur_col = all_rows[0][2]
@@ -46,6 +58,7 @@ def get_dependencies(cursor, table_name):
                 grouped_to = []
             grouped_from.append(item[1])
             grouped_to.append(item[3])
+
         return grouped
     else:
         return None
@@ -146,7 +159,7 @@ data[target_table] = row
 while queue:
     tablename = queue.pop(0)
     if tablename not in processed:
-        deps = get_dependencies(cur, tablename)
+        deps = get_dependencies(cur, tablename, owner=SCHEMA)
         dependencies[tablename] = deps
         tables = []
         if deps:
