@@ -19,6 +19,7 @@ import argparse
 import cx_Oracle
 
 
+# TODO: get_dependencies and get_dependents should be refactored to become a singe function
 def get_dependencies(cursor, table_name, owner = None):
     """query oracle metadata to obtain foreign keys for a given table"""
 
@@ -38,6 +39,50 @@ def get_dependencies(cursor, table_name, owner = None):
             order by c.table_name'''
         cursor.execute(query, {'TableName': table_name})
 
+
+    all_rows = cursor.fetchall()
+
+    if all_rows:
+        current = all_rows[0][4]
+        cur_col = all_rows[0][2]
+        grouped_from = []
+        grouped_to = []
+        grouped = []
+
+        # group keys by referenced table  so that we know how to deal with composite foreign keys later
+        for item in all_rows:
+            if item[4] != current:
+                grouped.append((item[0], grouped_from, cur_col, grouped_to))
+                current = item[4]
+                cur_col = item[2]
+                grouped_from = []
+                grouped_to = []
+            grouped_from.append(item[1])
+            grouped_to.append(item[3])
+
+        return grouped
+    else:
+        return None
+
+
+def get_dependants(cursor, table_name, owner=None):
+    """query oracle metadata to obtain foreign keys for a given table"""
+
+    if owner:
+        query = '''select b.table_name,b.column_name,c.table_name,c.column_name, b.constraint_name from all_constraints a
+            join all_cons_columns b on b.constraint_name=a.constraint_name
+            join all_cons_columns c on c.constraint_name=a.r_constraint_name
+            where a.CONSTRAINT_TYPE='R' and b.position = c.position and c.table_name=:TableName
+            and a.owner=:Owner and b.owner=:Owner and c.owner=:Owner
+            order by c.table_name'''
+        cursor.execute(query, {'TableName': table_name, 'Owner': owner})
+    else:
+        query = '''select b.table_name,b.column_name,c.table_name,c.column_name, b.constraint_name from all_constraints a
+            join all_cons_columns b on b.constraint_name=a.constraint_name
+            join all_cons_columns c on c.constraint_name=a.r_constraint_name
+            where a.CONSTRAINT_TYPE='R' and b.position = c.position and c.table_name=:TableName
+            order by c.table_name'''
+        cursor.execute(query, {'TableName': table_name})
 
     all_rows = cursor.fetchall()
 
