@@ -147,43 +147,41 @@ target_table = ARGS['table'].upper()
 target_column = ARGS['column'].upper()
 target_value = ARGS['value']
 
-queue = [target_table]
-processed = []
-
 dependencies = {}
 data = {}
 
 row = get_rows(cur, target_table, [target_column], [target_value])
 data[target_table] = row
 
+queue = [(target_table, x) for x in row]
+processed = []
+
 while queue:
-    tablename = queue.pop(0)
-    if tablename not in processed:
+    item = queue.pop(0)
+    if item not in processed:
+        tablename = item[0]
+        rowdata = item[1]
         deps = get_dependencies(cur, tablename, owner=SCHEMA)
-        dependencies[tablename] = deps
-        tables = []
+        processed.append(item)
         if deps:
-            tables = set([x[2] for x in deps])
             for dep in deps:
                 try:
                     vals = []
                     for i in range(len(dep[1])):
-                        vals.append(data[dep[0]][0][dep[1][i]])
+                        vals.append(rowdata[dep[1][i]])
                     if len(vals) and vals[0]:
                         row = get_rows(cur, dep[2], dep[3], vals)
-                        data[dep[2]] = row
-                        queue.append(dep[2])
+                        for r in row:
+                            queue.append((dep[2], r))
                 except KeyError:
                     data[dep[0]] = {}
                     data[dep[0]][dep[1]] = None
-        processed.append(tablename)
 
 if ARGS['outputfile']:
     outputfile = open(ARGS['outputfile'], "w")
 else:
     outputfile = sys.stdout
 
-processed.reverse()
 
 
 # TODO : this format selection and output is awful, refactor and separate data, formatting and file output
@@ -193,26 +191,30 @@ processed.reverse()
 if ARGS['format'] == 'xml':
     outputfile.write("<?xml version='1.0' encoding='UTF-8'?>\n<dataset>\n")
 
-for tablename in processed:
-    for item in range(len(data[tablename])):
-        fields = get_columns(cur, tablename, SCHEMA)
-        if ARGS['format'] == 'sql':
-            outputfile.write("insert into " + tablename + " (")
-        else:
-            outputfile.write("\t<" + tablename + " ")
+processed.reverse()
 
-        if ARGS['format'] == 'sql':
-            for i in range(len(fields) - 1):
-                outputfile.write(fields[i] + ",")
-            outputfile.write(fields[-1] + ") values (")
-            for i in range(len(fields) - 1):
-                outputfile.write(sql_str(data[tablename][item][fields[i]]) + ",")
-            outputfile.write(sql_str(data[tablename][item][fields[-1]]) + ");\n")
-        else:
-            for i in range(len(fields)):
-                if data[tablename][item][fields[i]]:  # ommit null values from xml output TODO : cli arg? same for sql output?
-                    outputfile.write(fields[i] + "=\"" + str(data[tablename][0][fields[i]]) + "\" ")
-            outputfile.write('/>\n')
+for item in processed:
+    tablename = item[0]
+    table_data = item[1]
+
+    fields = get_columns(cur, tablename, SCHEMA)
+    if ARGS['format'] == 'sql':
+        outputfile.write("insert into " + tablename + " (")
+    else:
+        outputfile.write("\t<" + tablename + " ")
+
+    if ARGS['format'] == 'sql':
+        for i in range(len(fields) - 1):
+            outputfile.write(fields[i] + ",")
+        outputfile.write(fields[-1] + ") values (")
+        for i in range(len(fields) - 1):
+            outputfile.write(sql_str(table_data[fields[i]]) + ",")
+        outputfile.write(sql_str(table_data[fields[-1]]) + ");\n")
+    else:
+        for i in range(len(fields)):
+            if table_data[fields[i]]:  # ommit null values from xml output TODO : cli arg? same for sql output?
+                outputfile.write(fields[i] + "=\"" + str(table_data[0][fields[i]]) + "\" ")
+        outputfile.write('/>\n')
 
 if ARGS['format'] == 'xml':
     outputfile.write('</dataset>\n')
