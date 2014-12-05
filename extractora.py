@@ -19,6 +19,7 @@ import argparse
 import cx_Oracle
 
 
+
 # TODO: get_dependencies and get_dependents should be refactored to become a singe function
 def get_dependencies(cursor, table_name, owner = None):
     """query oracle metadata to obtain foreign keys for a given table"""
@@ -43,7 +44,8 @@ def get_dependencies(cursor, table_name, owner = None):
     all_rows = cursor.fetchall()
 
     if all_rows:
-        current = all_rows[0][4]
+        current_fk = all_rows[0][4]
+        current_table = all_rows[0][0]
         cur_col = all_rows[0][2]
         grouped_from = []
         grouped_to = []
@@ -51,9 +53,10 @@ def get_dependencies(cursor, table_name, owner = None):
 
         # group keys by referenced table  so that we know how to deal with composite foreign keys later
         for item in all_rows:
-            if item[4] != current:
-                grouped.append((item[0], grouped_from, cur_col, grouped_to))
-                current = item[4]
+            if item[4] != current_fk:
+                grouped.append((current_table, grouped_from, cur_col, grouped_to))
+                current_fk = item[4]
+                current_table = item[0]
                 cur_col = item[2]
                 grouped_from = []
                 grouped_to = []
@@ -87,23 +90,24 @@ def get_dependants(cursor, table_name, owner=None):
     all_rows = cursor.fetchall()
 
     if all_rows:
-        current = all_rows[0][4]
-        cur_col = all_rows[0][2]
+        current_fk = all_rows[0][4]
+        current_table = all_rows[0][0]
+        cur_col = all_rows[0][1]
         grouped_from = []
         grouped_to = []
         grouped = []
 
         # group keys by referenced table  so that we know how to deal with composite foreign keys later
         for item in all_rows:
-            if item[4] != current:
-                grouped.append((item[0], grouped_from, cur_col, grouped_to))
-                current = item[4]
-                cur_col = item[2]
+            if item[4] != current_fk:
+                grouped.append((current_table, grouped_from, cur_col, grouped_to))
+                current_fk = item[4]
+                current_table = item[0]
+                cur_col = item[1]
                 grouped_from = []
                 grouped_to = []
             grouped_from.append(item[1])
             grouped_to.append(item[3])
-
         return grouped
     else:
         return None
@@ -142,9 +146,11 @@ def get_rows(cursor, table_name, column_names, column_values):
     :param column_values: values to query for (in the same order as fields)
     """
     query = "select * from " + table_name + " where " + column_names[0] + "=" + sql_str(column_values[0])
+    sys.stdout.flush()
     if len(column_names) > 1:
         for idx in range(1, len(column_names)):
             query += " and " + column_names[idx] + "=" + sql_str(column_values[idx])
+    print(query)
     cursor.execute(query)
     desc = [d[0] for d in cursor.description]
     result = [dict(zip(desc, line)) for line in cursor]
@@ -207,6 +213,8 @@ while queue:
         tablename = item[0]
         rowdata = item[1]
         deps = get_dependencies(cur, tablename, owner=SCHEMA)
+        deps1 = get_dependants(cur, tablename, owner=SCHEMA)
+
         processed.append(item)
         if deps:
             for dep in deps:
@@ -221,6 +229,16 @@ while queue:
                 except KeyError:
                     data[dep[0]] = {}
                     data[dep[0]][dep[1]] = None
+        if deps1:
+            for dep in deps1:
+                if target_column in dep[1] or target_column in dep[3]:
+                    vals = []
+                    for i in range(len(dep[1])):
+                        vals.append(rowdata[dep[3][i]])
+                    if len(vals) and vals[0]:
+                        row = get_rows(cur, dep[0], dep[1], vals)
+                        for r in row:
+                            queue.append((dep[0], r))
 
 if ARGS['outputfile']:
     outputfile = open(ARGS['outputfile'], "w")
