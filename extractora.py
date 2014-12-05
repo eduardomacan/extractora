@@ -21,6 +21,7 @@ import cx_Oracle
 
 
 
+
 # TODO: get_dependencies and get_dependents should be refactored to become a singe function
 def get_dependencies(cursor, table_name, owner = None):
     """query oracle metadata to obtain foreign keys for a given table"""
@@ -151,6 +152,7 @@ def get_rows(cursor, table_name, column_names, column_values):
     if len(column_names) > 1:
         for idx in range(1, len(column_names)):
             query += " and " + column_names[idx] + "=" + sql_str(column_values[idx])
+
     cursor.execute(query)
     desc = [d[0] for d in cursor.description]
     result = [dict(zip(desc, line)) for line in cursor]
@@ -214,7 +216,8 @@ dependencies = {}
 data = {}
 
 row = get_rows(cur, target_table, [target_column], [target_value])
-
+cache = {}
+cache[str((target_table, [target_column], [target_value]))] = row
 queue = [(target_table, x) for x in row]
 processed = []
 
@@ -236,14 +239,18 @@ while queue:
                 for i in range(len(dep[1])):
                     vals.append(rowdata[dep[1][i]])
                 if len(vals) and vals[0]:
-                    # TODO: cache get_rows
+
                     if dep[2] not in skip_tables:
-                        row = get_rows(cur, dep[2], dep[3], vals)
+                        row = []
+                        try:
+                            row = cache[str((dep[2], dep[3], vals))]
+                        except KeyError:
+                            row = get_rows(cur, dep[2], dep[3], vals)
+                            cache[str((dep[2], dep[3], vals))] = row
                     else:
                         row = []
 
                     for r in row:
-                        print(row, len(queue))
                         if dep[2] not in skip_tables:
                             queue.append((dep[2], r))
         if revdeps:
@@ -254,7 +261,12 @@ while queue:
                         vals.append(rowdata[dep[3][i]])
                     if len(vals) and vals[0]:
                         if dep[0] not in skip_tables:
-                            row = get_rows(cur, dep[0], dep[1], vals)
+                            row = []
+                            try:
+                                row = cache[str((dep[0], dep[1], vals))]
+                            except KeyError:
+                                row = get_rows(cur, dep[0], dep[1], vals)
+                                cache[str((dep[0], dep[1], vals))] = row
                         else:
                             row = []
 
