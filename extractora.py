@@ -20,6 +20,7 @@ import cx_Oracle
 
 
 
+
 # TODO: get_dependencies and get_dependents should be refactored to become a singe function
 def get_dependencies(cursor, table_name, owner = None):
     """query oracle metadata to obtain foreign keys for a given table"""
@@ -150,7 +151,6 @@ def get_rows(cursor, table_name, column_names, column_values):
     if len(column_names) > 1:
         for idx in range(1, len(column_names)):
             query += " and " + column_names[idx] + "=" + sql_str(column_values[idx])
-    print(query)
     cursor.execute(query)
     desc = [d[0] for d in cursor.description]
     result = [dict(zip(desc, line)) for line in cursor]
@@ -188,6 +188,14 @@ parser.add_argument('--xml', '-x', dest='format', action='store_const',
                     help='XML output (default=SQL)')
 parser.add_argument('--file', '-f', dest='outputfile',
                     help='output filename (none for stdout)')
+
+parser.add_argument('--reverse-deps', help='dependencies expressed by foreign keys only',
+                    action='store_true', dest='revdeps')
+parser.add_argument('--no-reverse-deps', help='dependencies expressed by foreign keys only',
+                    action='store_false', dest='revdeps')
+parser.set_defaults(revdeps=True)
+
+parser.add_argument('--skip-tables', '-s', help='skip these tables', nargs='+', type=str)
 parser.add_argument('table', help='table name')
 parser.add_argument('column', help='column name')
 parser.add_argument('value', help='value name')
@@ -197,48 +205,63 @@ ARGS = vars(args_ns)
 target_table = ARGS['table'].upper()
 target_column = ARGS['column'].upper()
 target_value = ARGS['value']
+if ARGS['skip_tables']:
+    skip_tables = [x.upper() for x in ARGS['skip_tables']]
+else:
+    skip_tables = []
 
 dependencies = {}
 data = {}
 
 row = get_rows(cur, target_table, [target_column], [target_value])
-data[target_table] = row
 
 queue = [(target_table, x) for x in row]
 processed = []
 
 while queue:
     item = queue.pop(0)
-    if item not in processed:
+    if item not in processed and item[0] not in skip_tables:
         tablename = item[0]
         rowdata = item[1]
         deps = get_dependencies(cur, tablename, owner=SCHEMA)
-        deps1 = get_dependants(cur, tablename, owner=SCHEMA)
 
+        if ARGS['revdeps']:
+            revdeps = get_dependants(cur, tablename, owner=SCHEMA)
+        else:
+            revdeps = None
         processed.append(item)
         if deps:
             for dep in deps:
-                try:
-                    vals = []
-                    for i in range(len(dep[1])):
-                        vals.append(rowdata[dep[1][i]])
-                    if len(vals) and vals[0]:
+                vals = []
+                for i in range(len(dep[1])):
+                    vals.append(rowdata[dep[1][i]])
+                if len(vals) and vals[0]:
+                    # TODO: cache get_rows
+                    if dep[2] not in skip_tables:
                         row = get_rows(cur, dep[2], dep[3], vals)
-                        for r in row:
+                    else:
+                        row = []
+
+                    for r in row:
+                        print(row, len(queue))
+                        if dep[2] not in skip_tables:
                             queue.append((dep[2], r))
-                except KeyError:
-                    data[dep[0]] = {}
-                    data[dep[0]][dep[1]] = None
-        if deps1:
-            for dep in deps1:
+        if revdeps:
+            for dep in revdeps:
                 if target_column in dep[1] or target_column in dep[3]:
                     vals = []
                     for i in range(len(dep[1])):
                         vals.append(rowdata[dep[3][i]])
                     if len(vals) and vals[0]:
-                        row = get_rows(cur, dep[0], dep[1], vals)
+                        if dep[0] not in skip_tables:
+                            row = get_rows(cur, dep[0], dep[1], vals)
+                        else:
+                            row = []
+
                         for r in row:
-                            queue.append((dep[0], r))
+                            # print(row,len(queue))
+                            if dep[0] not in skip_tables:
+                                queue.append((dep[0], r))
 
 if ARGS['outputfile']:
     outputfile = open(ARGS['outputfile'], "w")
