@@ -21,17 +21,26 @@ Configuration Options
 Usage
 ----------
 
-    usage: extractora.py [-h] [--xml] [--file OUTPUTFILE] table column value
-    
-    recursively extract data from oracle
-    
-    positional arguments:
-      table                 table name
-      column                column name
-      value                 value name
-    
-    optional arguments:
-      -h, --help            show this help message and exit
-      --xml, -x             XML output (default=SQL)
-      --file OUTPUTFILE, -f OUTPUTFILE
-                            output filename (none for stdout)
+```
+recursively extract data from oracle
+
+positional arguments:
+  table                 table name
+  column                column name
+  value                 value name
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --xml, -x             XML output (default=SQL)
+  --file OUTPUTFILE, -f OUTPUTFILE
+                        output filename (none for stdout)
+  --dbuser DBUSER, -u DBUSER
+                        Oracle username
+  --dbpass DBPASS, -p DBPASS
+                        Oracle password
+  --dsn DSN, -d DSN     Oracle DSN
+  --reverse-deps        dependencies expressed by foreign keys only
+  --no-reverse-deps     dependencies expressed by foreign keys only
+  --skip-tables SKIP_TABLES [SKIP_TABLES ...], -s SKIP_TABLES [SKIP_TABLES ...]
+                        skip these tables
+```
