@@ -8,7 +8,7 @@ order to build new automated test cases, so I created this hack to help them. It
 Install
 ----------
 
-Rename dotextractoracfg-sample to ~/.dotextractoracfg and edit parameters there, it's a json file.
+Rename dotextractoracfg-sample to ~/.dotextractoracfg and edit parameters there
 
 Configuration Options
 ----------

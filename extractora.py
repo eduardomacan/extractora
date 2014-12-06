@@ -12,11 +12,10 @@ from __future__ import print_function
 import sys
 import types
 import datetime
-import json
 import os.path
 import argparse
-
-import cx_Oracle
+import ConfigParser as configparser
+#import cx_Oracle
 
 
 
@@ -158,7 +157,6 @@ def get_rows(cursor, table_name, column_names, column_values):
     result = [dict(zip(desc, line)) for line in cursor]
     return result
 
-
 # Initialize stuff and parse command arguments
 
 HOME = os.path.expanduser('~')
@@ -169,20 +167,22 @@ SCHEMA = ''
 USER = ''
 PASSWORD = ''
 
-# TODO: dotfile should be optional when parameters received via command line
-try:
-    with open(CONFIGFILE) as jsonfile:
-        CONFIG = json.load(jsonfile)
-        DSN = CONFIG['dsn']
-        USER = CONFIG['user']
-        SCHEMA = CONFIG['schema']  # TODO: SCHEMA should default to USER if not specified
-        PASSWORD = CONFIG['password']
-except IOError:
-    print("Couldn't read config file: ", CONFIGFILE, file=sys.stderr)
-    exit(1)
+config = configparser.ConfigParser()
+config.read(CONFIGFILE)
 
-con = cx_Oracle.connect(USER, PASSWORD, DSN)
-cur = con.cursor()
+if config.has_option('DEFAULT','dsn'):
+    DSN = config.get('DEFAULT','dsn', None)
+
+if config.has_option('DEFAULT','user'):
+    USER = config.get('DEFAULT','user', None)
+
+if config.has_option('DEFAULT','password'):
+    PASSWORD = config.get('DEFAULT','password', None)
+
+if config.has_option('DEFAULT','schema'):
+    SCHEMA = config.get('DEFAULT','schema', USER)
+else:
+    SCHEMA = USER
 
 parser = argparse.ArgumentParser(description='recursively extract data from oracle')
 parser.add_argument('--xml', '-x', dest='format', action='store_const',
@@ -190,6 +190,15 @@ parser.add_argument('--xml', '-x', dest='format', action='store_const',
                     help='XML output (default=SQL)')
 parser.add_argument('--file', '-f', dest='outputfile',
                     help='output filename (none for stdout)')
+
+parser.add_argument('--dbuser', '-u', dest='dbuser',
+                    help='Oracle username')
+
+parser.add_argument('--dbpass', '-p', dest='dbpass',
+                    help='Oracle password')
+
+parser.add_argument('--dsn', '-d', dest='dsn',
+                    help='Oracle DSN')
 
 parser.add_argument('--reverse-deps', help='dependencies expressed by foreign keys only',
                     action='store_true', dest='revdeps')
@@ -207,10 +216,27 @@ ARGS = vars(args_ns)
 target_table = ARGS['table'].upper()
 target_column = ARGS['column'].upper()
 target_value = ARGS['value']
+
 if ARGS['skip_tables']:
     skip_tables = [x.upper() for x in ARGS['skip_tables']]
 else:
     skip_tables = []
+
+if ARGS['dsn']:
+    DSN = ARGS['dsn']
+
+if ARGS['dbuser']:
+    USER = ARGS['dbuser']
+
+if ARGS['dbpass']:
+    PASSWORD = ARGS['dbpass']
+
+print (DSN,USER,PASSWORD)
+if not (DSN and USER and PASSWORD):
+    sys.exit("User, password and dsn are needed.\nUse the command line options or edit {}".format(CONFIGFILE))
+
+con = cx_Oracle.connect(USER, PASSWORD, DSN)
+cur = con.cursor()
 
 dependencies = {}
 data = {}
@@ -281,8 +307,7 @@ else:
     outputfile = sys.stdout
 
 
-
-# TODO : this format selection and output is awful, refactor and separate data, formatting and file output
+# TODO : this format selection and output code is awful, refactor and separate data, formatting and file output
 # TODO : fix output encoding, make sure it's utf-8, or any encoding that may be user selected
 # TODO : make output encoding user selectable :)
 
