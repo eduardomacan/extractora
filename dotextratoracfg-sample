@@ -1,6 +1,4 @@
-{
-	"dsn": "(description=(address_list= BLA BLA BLA BLA ))", 
-	"password": "MyPassWord", 
-	"user": "MyUserName",
-	"schema": "MyOracleSchemaOwner"
-}
+[DEFAULT]
+dsn = (description=(address_list= BLA BLA BLA BLA ))
+password = MyPassWord
+user = MyUserName
