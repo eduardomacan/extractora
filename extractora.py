@@ -22,6 +22,8 @@ import cx_Oracle
 
 
 
+
+
 # TODO: get_dependencies and get_dependents should be refactored to become a singe function
 def get_dependencies(cursor, table_name, owner = None):
     """query oracle metadata to obtain foreign keys for a given table"""
@@ -311,7 +313,7 @@ for item in processed:
     else:
         for i in range(len(fields)):
             if table_data[fields[i]]:  # ommit null values from xml output TODO : cli arg? same for sql output?
-                outputfile.write(fields[i] + "=\"" + str(table_data[0][fields[i]]) + "\" ")
+                outputfile.write(fields[i] + "=\"" + str(table_data[fields[i]]) + "\" ")
         outputfile.write('/>\n')
 
 if ARGS['format'] == 'xml':
